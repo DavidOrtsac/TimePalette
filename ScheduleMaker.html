@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CramIt - TimePalette | Free Online Schedule Maker & Weekly Planner</title>
+  <meta name="description" content="Create beautiful weekly schedules with TimePalette - the free online schedule maker. Drag & drop to build color-coded timetables for school, work, or any planning needs."/>
+  <meta name="keywords" content="schedule maker, weekly planner, timetable creator, online scheduler, time management, weekly schedule, class schedule, work schedule, free planner"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg1:#f5f7fa; --bg2:#c3cfe2;
+      --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --panel:#fff; --subtle:#f8fafc;
+      --gap:1px;
+      --row-h:12px;            /* default row height -> 12px */
+      --radius:12px;
+      --pad-v:8px; --pad-h:10px; --left-accent:9px;
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,'Inter','SF Pro',system-ui,'Segoe UI',Roboto,Arial,sans-serif;background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);min-height:100vh;padding:16px;overflow-x:hidden}
+    body.blocked{overflow:hidden}
+
+    .app-container{max-width:100%;margin:0 auto;display:grid;grid-template-columns:360px 1fr;gap:22px;align-items:start}
+    .app-container.items-hidden{grid-template-columns:1fr;}
+
+    /* SIDE PANEL */
+    .side-panel{background:var(--panel);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.08);padding:18px;border:1px solid #e1e8ed}
+    .side-panel.hidden{display:none;}
+    .panel-header{text-align:center;margin-bottom:14px}
+    .panel-header h2{font-size:1.25rem;color:var(--ink);font-weight:800;margin-bottom:4px;letter-spacing:-.3px}
+    .panel-header p{color:var(--muted);font-size:.9rem;line-height:1.3}
+
+    .add-item-section{background:var(--subtle);padding:14px;border-radius:var(--radius);margin-bottom:14px;border:2px dashed #cbd5e1;transition:.2s}
+    .add-item-section:hover{border-color:#1e66ff;background:#eef4ff}
+    .add-item-form{display:flex;flex-direction:column;gap:8px}
+    .input-group{display:flex;flex-direction:column;gap:6px}
+    .input-group label{font-size:.76rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.5px}
+    .input-field{padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:.95rem;background:#fff}
+    .input-field:focus{outline:none;border-color:#1e66ff;box-shadow:0 0 0 3px rgba(30,102,255,.12)}
+    .add-btn{background:linear-gradient(135deg,#1e66ff,#0a84ff);color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:800;font-size:.9rem;cursor:pointer}
+    .add-btn:hover{filter:brightness(.97);box-shadow:0 6px 14px rgba(30,102,255,.26)}
+
+    .color-palette{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:6px}
+    .color-option{
+      width:26px;height:26px;border-radius:50%;
+      border:2px solid rgba(0,0,0,0.12);
+      cursor:pointer;transition:.16s;position:relative
+    }
+    .color-option:hover{transform:scale(1.12);border-color:#fff;box-shadow:0 3px 8px rgba(0,0,0,.22)}
+    .color-option.selected{outline:3px solid #0f172a;transform:scale(1.06)}
+    .color-option.used::after{content:"×";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:.95rem;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+    .color-option.used{filter:saturate(.6) brightness(.9);cursor:not-allowed;pointer-events:none}
+
+    .subjects-list h3{color:var(--ink);font-size:1rem;margin:10px 0 8px;padding-bottom:8px;border-bottom:2px solid var(--line);font-weight:900}
+    .subject-item{display:flex;align-items:center;justify-content:space-between;padding:12px;margin:8px 0;border-radius:14px;cursor:grab;transition:.16s;position:relative;overflow:hidden;user-select:none;box-shadow:0 4px 12px rgba(0,0,0,.08);color:#fff}
+    .subject-item[style*="#E5E7EB"], .subject-item[style*="#e5e7eb"]{color:var(--ink)!important}
+    .subject-item:hover{transform:translateX(3px)}
+    .subject-content{display:flex;align-items:center;gap:10px;flex:1}
+    .color-indicator{width:20px;height:20px;border-radius:50%;border:3px solid rgba(255,255,255,.9);box-shadow:0 2px 6px rgba(0,0,0,.18);flex-shrink:0;background:#fff}
+    .subject-info{flex:1}
+    .subject-name{font-weight:900;font-size:1rem;margin-bottom:2px}
+    .subject-description{font-size:.84rem;opacity:.95;line-height:1.15}
+    .subject-tag{font-size:.78rem;opacity:.95}
+    .delete-btn{position:absolute;top:8px;right:8px;background:#00000040;color:#fff;border:none;width:24px;height:24px;border-radius:6px;cursor:pointer;font-weight:800}
+    .subject-item:active{cursor:grabbing}
+
+    /* MAIN SCHEDULE */
+    .schedule-container{background:var(--panel);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.08);padding:16px;border:1px solid #e1e8ed}
+    .schedule-header{text-align:center;margin-bottom:6px}
+    .schedule-header h1{font-size:1.6rem;color:var(--ink);font-weight:800;letter-spacing:.5px}
+
+    .schedule-toolbar{display:flex;gap:8px;justify-content:center;margin:10px 0 8px;flex-wrap:wrap;align-items:center}
+    .btn{border:2px solid #e2e8f0;background:#fff;padding:7px 10px;border-radius:10px;font-weight:700;color:#0f172a;cursor:pointer}
+    .btn:hover{border-color:#0a84ff}
+    .btn.finalize{background:#0047ff;border-color:#0047ff;color:#fff}  /* cobalt */
+    .slider-wrap{display:flex;align-items:center;gap:8px;padding:6px 8px;border:2px solid #e2e8f0;border-radius:10px;background:#fff}
+    .slider-wrap label{font-size:.8rem;font-weight:800;color:#0f172a}
+    .slider-wrap input[type="range"]{width:140px}
+    .slider-wrap .density-note{font-size:0.78rem;color:var(--muted);font-weight:700;margin-left:8px;white-space:nowrap}
+
+    /* GRID */
+    .schedule-grid{
+      display:grid;
+      grid-template-columns:100px repeat(5, minmax(0,1fr));
+      gap:var(--gap);
+      background:var(--line);
+      padding:var(--gap);
+      border-radius:12px;
+      grid-auto-rows:var(--row-h);
+      width:100%;
+      position:relative;
+    }
+    
+    /* 7-day grid CRUSHES columns to fit within same container */
+    .schedule-grid.seven-day{
+      grid-template-columns:100px repeat(7, minmax(0,1fr));
+      /* Same width - columns get crushed to 5/7 = 71.4% of original width */
+      width:100%;
+    }
+
+    .time-header,.day-header{
+      padding:12px 8px;font-size:.84rem;font-weight:500;text-transform:capitalize;letter-spacing:.3px;
+      background:#f8f9fa;color:#495057;display:flex;align-items:center;justify-content:center;position:sticky;top:0;z-index:6;margin-bottom:6px;border-bottom:1px solid #dee2e6
+    }
+    .header-spacer{grid-column:1 / -1; height:6px; background:transparent;}
+
+    .time-slot{
+  background:#f1f5f9;
+  padding:4px 6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.74rem;
+  color:#475569 !important;   /* ← add !important */
+  box-shadow: inset 0 0 0 1px var(--line); /* ← add this line */
+  font-weight:200;
+  border-right:1px solid #e2e8f0;
+  height:100%;
+}
+
+    .time-slot.hour-mark{background:#f1f5f9;color:#0f172a}
+    .time-slot:not(.hour-mark){color:#94a3b8}
+
+    .empty-slot,.schedule-slot{background:#fff;height:100%;position:relative}
+    .empty-slot{border:0.1px #d7dee8;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;overflow:hidden}
+    .empty-slot:hover{background:#f8fbff;border-color:#9cc2ff}
+    .empty-slot.drag-over{background:#e3f2fd;border-color:#0a84ff;box-shadow:inset 0 0 10px rgba(10,132,255,.15);transform:scale(1.001)}
+    .empty-slot::before{content:"+";color:#94a3b8;font-size:1rem;font-weight:200;opacity:0;transition:.15s}
+    .empty-slot:hover::before{opacity:1}
+
+    .schedule-item{
+      background:var(--card-bg,#eef2ff);
+      padding:var(--pad-v) var(--pad-h);
+      border-radius:10px;position:relative;cursor:pointer;transition:.12s ease;
+      display:flex;flex-direction:column;justify-content:center;
+      border-left:var(--left-accent) solid var(--accent,#334155);
+      height:100%;box-shadow:0 1px 4px rgba(0,0,0,.05);color:#0b1220;overflow:hidden
+    }
+    .schedule-item:hover{transform:translateY(-1px)}
+    .schedule-item .item-name{font-weight:900;font-size:.86rem;margin-bottom:1px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;transition:font-size 0.2s ease}
+    .schedule-item .item-description{font-size:.72rem;opacity:.88;line-height:1.15;transition:font-size 0.2s ease, opacity 0.2s ease}
+    .schedule-item .item-tag{font-size:.68rem;opacity:.88;transition:font-size 0.2s ease, opacity 0.2s ease}
+    .schedule-item.compact .item-name{-webkit-line-clamp:2}
+    .schedule-item.compact .item-description,.schedule-item.compact .item-tag{display:none}
+    
+    /* MATHEMATICAL DYNAMIC SIZING - NO MORE CLASSES! */
+    .schedule-item[data-title]:hover::after{content:attr(data-title);position:absolute;left:10px;right:10px;bottom:6px;padding:6px 1px;border-radius:8px;background:rgba(0,0,0,.85);color:#fff;font-size:.72rem;line-height:1.15;pointer-events:none;z-index:3}
+    .schedule-item.is-brush{outline:2px solid #0a84ff}
+    .schedule-item .remove-btn{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.35);color:#fff;border:none;width:20px;height:20px;border-radius:6px;cursor:pointer;font-size:.72rem;opacity:0;transition:.12s;z-index:4}
+    .schedule-item:hover .remove-btn{opacity:1}
+
+    /* TRUE MERGE overlay (absolute) */
+    .run-block{
+      position:absolute;left:0;top:0;width:0;height:0;background:var(--card-bg,#eef2ff);
+      border-left:var(--left-accent) solid var(--accent,#334155);
+      border-radius:0;
+      padding:var(--pad-v) var(--pad-h);color:#0b1220;
+      box-shadow:0 0 0 1px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,.10);
+      display:flex;flex-direction:column;justify-content:center;gap:2px;z-index:2;pointer-events:none;overflow:hidden;
+    }
+    .run-block .t{font-weight:700;transition:font-size 0.2s ease}
+    .run-block .d{font-size:.72rem;opacity:.9;transition:font-size 0.2s ease, opacity 0.2s ease}
+    .run-block .g{font-size:.68rem;opacity:.85;transition:font-size 0.2s ease, opacity 0.2s ease}
+    .run-block .time-range{font-size:.65rem;opacity:.8;font-weight:600;margin-top:2px;color:var(--accent);text-align:center;transition:font-size 0.2s ease, opacity 0.2s ease}
+    
+    /* MATHEMATICAL DYNAMIC SIZING FOR MERGED BLOCKS - NO MORE CLASSES! */
+    .run-close{pointer-events:auto;position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:6px;background:rgba(0,0,0,.40);color:#fff;border:none;cursor:pointer;font-weight:800;line-height:18px;font-size:.8rem;}
+    .run-close:hover{background:rgba(0,0,0,.55)}
+    .ghost{opacity:0;pointer-events:none}
+
+    .dense-blocks .schedule-item{ --pad-v:6px; --left-accent:8px }
+    .dense-blocks .schedule-item .item-name{font-size:.83rem}
+
+    /* Brush UI */
+    .brush-chip{display:none;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#111827;color:#fff;font-weight:800;font-size:.8rem;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+    .brush-chip .sw{width:12px;height:12px;border-radius:50%;border:2px solid #ffffffb3;display:inline-block}
+    .brush-chip .clear{border:none;background:#ffffff14;color:#fff;padding:4px 8px;border-radius:999px;cursor:pointer;font-weight:900}
+    .brush-chip .clear:hover{background:#ffffff26}
+
+    .cursor-brush{position:fixed;inset:auto;pointer-events:none;z-index:9998;display:none;transform:translate(-50%,-50%)}
+    .cursor-chip{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;background:#111827;color:#fff;font-weight:800;font-size:.75rem;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+    .cursor-chip .sw{width:11px;height:11px;border-radius:50%;border:2px solid #ffffffb3}
+
+    /* FINALIZE (clean screenshot) */
+    .finalize-overlay{position:fixed;inset:0;background:#f7f9fc;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px}
+    .finalize-overlay.active{display:flex}
+    .finalize-wrap{position:relative;background:#fff;border:1px solid #e5eaf1;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.15);padding:12px}
+    .finalize-grid{position:relative}
+    .finalize-overlay .schedule-item .remove-btn{display:none!important}
+    .finalize-overlay .empty-slot::before{display:none}
+    .finalize-overlay .schedule-grid{pointer-events:none}
+    .finalize-overlay .run-close{display:none!important}
+
+    .final-hint{
+      position:fixed;left:50%;transform:translateX(-50%);
+      bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+      background:#0b1220;color:#fff;padding:8px 14px;border-radius:999px;
+      font-size:.86rem;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.18);
+      pointer-events:none;z-index:10000
+    }
+
+    /* MOBILE-ONLY LAYOUT SWITCHER (kept; will be hidden by block overlay) */
+    .mobile-switcher{display:none}
+    @media (max-width: 900px){
+      #btnToggleItems{ display:none; }
+      .mobile-switcher{display:flex;gap:8px;margin:0 0 10px 0;position:sticky;top:0;z-index:20;padding-bottom:8px;background:transparent}
+      .mobile-switcher .tab{flex:1;padding:10px 12px;border-radius:10px;border:2px solid #e2e8f0;background:#fff;font-weight:800;cursor:pointer}
+      .mobile-switcher .tab.active{border-color:#0a84ff;box-shadow:0 2px 12px rgba(10,132,255,.15)}
+      .app-container{grid-template-columns:1fr}
+      #sidePanel,#scheduleContainer{display:none}
+      .app-container[data-mobile-view="schedule"] #scheduleContainer{display:block!important}
+      .app-container[data-mobile-view="items"]    #sidePanel{display:block!important}
+      .schedule-container{padding:12px}
+      .schedule-toolbar{justify-content:flex-start}
+      .schedule-grid{grid-template-columns:86px repeat(5,minmax(0,1fr))}
+      .schedule-grid.seven-day{grid-template-columns:86px repeat(7,minmax(0,1fr))}
+      .time-slot{font-size:.7rem;padding:3px 4px}
+    }
+
+    /* DEVICE BLOCK OVERLAY (always covers when active) */
+    .mobile-block{
+      position:fixed;inset:0;width:100vw;height:100vh;
+      background:rgba(0,0,0,0.9);z-index:10000;
+      display:none;align-items:center;justify-content:center;color:#fff;text-align:center
+    }
+    .block-content{max-width:480px;padding:24px}
+    .block-content h1{font-size:2rem;margin-bottom:1rem}
+    .block-content p{margin-bottom:.6rem;line-height:1.55}
+
+    /* Row hover highlight */
+.row-highlight{
+  position:absolute; left:0; right:0;
+  height:var(--row-h);
+  background:rgba(10,132,255,.08);
+  box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line);
+  pointer-events:none; z-index:1; /* sits above cells, below headers/overlays */
+}
+
+  </style>
+</head>
+<body>
+  <!-- HARD BLOCK: shown on touch / narrow viewports -->
+  <div id="mobileBlock" class="mobile-block" aria-hidden="true">
+    <div class="block-content" role="dialog" aria-modal="true" aria-labelledby="blockTitle">
+      <h1 id="blockTitle">🖥️ Desktop Only Access</h1>
+      <p>This site is designed exclusively for desktop computers. Please use a computer with a larger screen and a mouse/trackpad to create your schedules.</p>
+      <p style="font-size:0.9rem;opacity:.8">Tip: a viewport width of at least <b>1024px</b> is recommended.</p>
+    </div>
+  </div>
+
+  <div class="app-container" id="appShell" data-mobile-view="schedule" aria-hidden="false">
+    <!-- MOBILE SWITCHER (kept; blocked by overlay on mobile) -->
+    <div class="mobile-switcher" id="mobileSwitcher" role="tablist" aria-label="Switch view">
+      <button class="tab active" data-view="schedule" role="tab" aria-selected="true">Schedule</button>
+      <button class="tab" data-view="items" role="tab" aria-selected="false">Items</button>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side-panel" id="sidePanel">
+      <div class="panel-header">
+        <h2>📚 Define Your Schedule Items</h2>
+        <p>Create your weekly schedule maker items. Drop once, then <b>click-drag</b> to paint up/down. <b>Alt/Option</b> to erase.</p>
+      </div>
+
+      <div class="add-item-section">
+        <form class="add-item-form" id="addItemForm">
+          <div class="input-group">
+            <label for="itemName">Item Name</label>
+            <input id="itemName" class="input-field" placeholder="e.g., Math Class, Lunch Break, Work Meeting, Study Time" required/>
+          </div>
+          <div class="input-group">
+            <label for="itemDescription">Description (Optional)</label>
+            <input id="itemDescription" class="input-field" placeholder="e.g., Advanced Calculus, Room 101"/>
+          </div>
+          <div class="input-group">
+            <label for="itemTag">Tag (Optional)</label>
+            <input id="itemTag" class="input-field" placeholder="e.g., Section A, Prof. Smith"/>
+          </div>
+          <div class="input-group">
+            <label>Choose Color</label>
+            <div class="color-palette" id="colorPalette"></div>
+          </div>
+          <button type="submit" class="add-btn">➕ Add Item</button>
+        </form>
+      </div>
+
+      <div class="subjects-list">
+        <h3>📋 Your Schedule Items</h3>
+        <div id="subjectsList">
+          <p style="color:#64748b;font-style:italic;text-align:center;padding:14px;">No schedule items yet. Create your first weekly planner item above!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN SCHEDULE -->
+    <div class="schedule-container" id="scheduleContainer">
+      <div class="schedule-header">
+        <h1>CramIt TimePalette</h1>
+      </div>
+
+<div class="schedule-toolbar">
+  <button class="btn" id="btnToggleItems">Hide Schedule Items Panel</button>
+
+  <div class="slider-wrap">
+    <label for="densityRange">Row height</label>
+    <input type="range" id="densityRange" min="10" max="56" step="1" value="12"/>
+    <span id="densityVal" style="font-weight:800;color:#0f172a">12px</span>
+    <span class="density-note">recommended 12px</span>
+  </div>
+
+  <button class="btn" id="btnResetFit">Reset Size</button>
+
+  <!-- NEW: time format toggle -->
+  <button class="btn" id="btnTimeFmt">Time: 12-hour</button>
+
+  <!-- NEW: weekend toggle -->
+  <button class="btn" id="btnWeekendToggle">+ Weekend</button>
+
+  <button class="btn finalize" id="btnFinalize">Export Schedule</button>
+  <button class="btn" id="btnFullscreen">Fullscreen</button>
+
+  <div class="brush-chip" id="brushChip">
+    <span class="sw" id="brushSwatch"></span>
+    <span id="brushLabel">No brush</span>
+    <button class="clear" id="brushClear" title="Clear">✕</button>
+  </div>
+</div>
+
+
+      <div class="schedule-grid" id="scheduleGrid">
+        <div class="time-header">TIME</div>
+        <div class="day-header">Monday</div>
+        <div class="day-header">Tuesday</div>
+        <div class="day-header">Wednesday</div>
+        <div class="day-header">Thursday</div>
+        <div class="day-header">Friday</div>
+        <div class="header-spacer"></div>
+        <!-- rows inserted by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Brush cursor ghost -->
+  <div class="cursor-brush" id="cursorBrush">
+    <div class="cursor-chip"><span class="sw"></span><span id="cursorTxt"></span></div>
+  </div>
+
+  <!-- FINALIZE CLEAN OVERLAY -->
+  <div class="finalize-overlay" id="finalizeOverlay" aria-hidden="true">
+    <div class="finalize-wrap" id="finalizeWrap">
+      <div class="finalize-grid" id="finalizeGridHolder"></div>
+    </div>
+    <div class="final-hint">Press <b>P/D</b> to download PDF • <b>Esc</b> or click anywhere to exit</div>
+  </div>
+
+  <noscript>
+    <div style="position:fixed;inset:0;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;z-index:10001">
+      <div style="max-width:600px;text-align:center;padding:24px">
+        <h2 style="margin-bottom:12px">JavaScript Required</h2>
+        <p>This site requires JavaScript and is intended for desktop browsers.</p>
+      </div>
+    </div>
+  </noscript>
+
+  <script>
+    const COLORS=['#1E66FF','#0A84FF','#2563EB','#34C759','#10B981','#00C7A9','#00B8D9','#FF3B30','#E53935','#FF2D55','#FF9500','#FFB300','#FDB515','#7C3AED','#9C27B0','#E5E7EB'];
+    let subjects=[], usedColors=new Set(), selectedColor=null, TIMES=[];
+    let currentBrush=null, isPainting=false, paintDay=null, paintMode='fill';
+    let showWeekends=false; // Weekend toggle state
+    
+
+    // Device detection
+    const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || (window.matchMedia && matchMedia('(pointer:coarse)').matches);
+    let ignoreNextClear = false;
+
+    // HARD BLOCK logic
+    function shouldBlockMobile(){
+      const narrow = window.innerWidth < 1024;           // gate small viewports
+      const coarse = IS_TOUCH;                            // gate touch / coarse pointer devices
+      return narrow || coarse;
+    }
+    function applyDeviceGate(){
+      const block=document.getElementById('mobileBlock');
+      const app=document.getElementById('appShell');
+      if(shouldBlockMobile()){
+        block.style.display='flex';
+        block.setAttribute('aria-hidden','false');
+        app.setAttribute('aria-hidden','true');
+        document.body.classList.add('blocked');
+      }else{
+        block.style.display='none';
+        block.setAttribute('aria-hidden','true');
+        app.setAttribute('aria-hidden','false');
+        document.body.classList.remove('blocked');
+      }
+    }
+
+    window.addEventListener('load',()=>{
+      applyDeviceGate();  // enforce block before anything else
+
+      buildGrid();
+      initColorPicker();
+      setupForm();
+      setupToolbar();
+      initRowHover();
+
+      document.addEventListener('mouseup', endPaint);
+      document.getElementById('scheduleGrid').addEventListener('contextmenu',e=>e.preventDefault());
+      if(!IS_TOUCH){ document.addEventListener('mousemove', moveCursorGhost); } // no floaty pill on touch
+      document.body.classList.add('dense-blocks');
+      
+      // Initialize dynamic sizing after everything is loaded
+      setTimeout(() => {
+        console.log('Initializing dynamic sizing...');
+        updateAllDynamicSizing();
+      }, 200);
+
+      // Desktop-only click-away (overlay will swallow clicks on mobile anyway)
+      document.addEventListener('click', (e)=>{
+        const grid = document.getElementById('scheduleGrid');
+        const chip = document.getElementById('brushChip');
+        const side = document.getElementById('sidePanel');
+        if (ignoreNextClear) { ignoreNextClear = false; return; }
+        if (e.target.closest('.tab-btn, [data-keep-brush], #mobileTabBar')) { return; }
+        if (currentBrush && !grid.contains(e.target) && !chip.contains(e.target) && (!side || !side.contains(e.target))) {
+          clearBrush();
+        }
+      });
+
+      initMobileSwitcher();
+
+      window.addEventListener('resize', ()=>{
+        applyDeviceGate(); // re-evaluate on resize
+        updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
+        const ov=document.getElementById('finalizeOverlay');
+        if(ov.classList.contains('active')){
+          const holder=document.getElementById('finalizeGridHolder').querySelector('.schedule-grid');
+          if(holder) updateMergesAllDaysInGrid(holder);
+        }
+        // Update dynamic sizing after layout changes
+        setTimeout(() => updateAllDynamicSizing(), 100);
+      });
+      window.addEventListener('orientationchange', applyDeviceGate);
+    });
+
+    /* ========= MOBILE SWITCHER (kept; irrelevant when blocked) ========= */
+    function initMobileSwitcher(){
+      const app=document.getElementById('appShell');
+      const switcher=document.getElementById('mobileSwitcher');
+      const tabs=[...switcher.querySelectorAll('.tab')];
+      const setView = (view)=>{
+        app.dataset.mobileView=view;
+        tabs.forEach(btn=>{
+          const active = btn.dataset.view===view;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-selected', active? 'true':'false');
+        });
+        if(view==='schedule'){ updateMergesAllDaysInGrid(document.getElementById('scheduleGrid')); }
+      };
+      setView('schedule');
+      tabs.forEach(btn=>btn.addEventListener('click', (e)=>{ setView(btn.dataset.view); e.preventDefault(); }));
+    }
+
+    /* ========= GRID (7:00–19:00 inclusive, 15-min) ========= */
+function buildGrid(){
+  const grid=document.getElementById('scheduleGrid'); 
+  
+  // Clear existing grid content
+  grid.innerHTML = '';
+  
+  // Set up grid class and day names
+  const dayCount = showWeekends ? 7 : 5;
+  const dayNames = showWeekends 
+    ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  
+  grid.className = showWeekends ? 'schedule-grid seven-day' : 'schedule-grid';
+  
+  // Add headers
+  grid.appendChild(createHeader('TIME', 'time-header'));
+  dayNames.forEach(day => grid.appendChild(createHeader(day, 'day-header')));
+  
+  // Add header spacer
+  const spacer = document.createElement('div');
+  spacer.className = 'header-spacer';
+  grid.appendChild(spacer);
+  
+  // Build time slots
+  TIMES = [];
+  for(let hour=7; hour<=19; hour++){
+    for(let minute=0; minute<60; minute+=15){
+      if(hour===19 && minute>0) break;
+
+      const hh=String(hour).padStart(2,'0'), mm=String(minute).padStart(2,'0');
+      const start24 = `${hh}:${mm}`;
+
+      // Store only start time + hour flag; we'll format per current mode
+      TIMES.push({ time24:start24, isHour: minute===0 });
+    }
+  }
+
+  TIMES.forEach(t=>{
+    const timeCell=document.createElement('div');
+    timeCell.className=`time-slot ${t.isHour?'hour-mark':''}`;
+
+    // NEW: compute from current mode + tag the cell with its 24h start
+    timeCell.textContent = formatRange(t.time24);
+    timeCell.dataset.time24 = t.time24;
+
+    grid.appendChild(timeCell);
+
+    for(let d=0; d<dayCount; d++){
+      const slot=document.createElement('div');
+      slot.className='empty-slot';
+      slot.dataset.day=String(d);
+      slot.dataset.time=t.time24;
+      setupDropZone(slot);
+      grid.appendChild(slot);
+    }
+  });
+}
+
+function createHeader(text, className) {
+  const header = document.createElement('div');
+  header.className = className;
+  header.textContent = text;
+  return header;
+}
+
+
+    /* ========= COLOR PICKER ========= */
+    function initColorPicker(){
+      const pal=document.getElementById('colorPalette'); pal.innerHTML='';
+      COLORS.forEach(c=>{
+        const el=document.createElement('div');
+        el.className='color-option'; el.style.background=c; el.dataset.color=c; el.title=c;
+        el.addEventListener('click',()=>selectColor(c));
+        pal.appendChild(el);
+      });
+      selectedColor=firstAvailableColor()||COLORS[0];
+      refreshPaletteUI();
+    }
+    function allowRepeats(){ return usedColors.size>=COLORS.length }
+    function firstAvailableColor(){ for(const c of COLORS){ if(!usedColors.has(c)) return c } return null }
+    function selectColor(c){ selectedColor=c; refreshPaletteUI() }
+    function refreshPaletteUI(){
+      const allow=allowRepeats();
+      document.querySelectorAll('.color-option').forEach(o=>{
+        const c=o.dataset.color, inUse=usedColors.has(c);
+        o.classList.toggle('selected', c===selectedColor);
+        o.classList.toggle('used', inUse && !allow);
+        if(inUse && !allow && selectedColor===c){
+          const next=firstAvailableColor(); selectedColor=next||selectedColor;
+        }
+      });
+    }
+    function recomputeUsedColors(){ usedColors=new Set(subjects.map(s=>s.color)); refreshPaletteUI(); }
+
+    /* ========= ADD ITEM ========= */
+    function setupForm(){
+      const f=document.getElementById('addItemForm');
+      f.addEventListener('submit',e=>{
+        e.preventDefault();
+        const name=document.getElementById('itemName').value.trim();
+        const description=document.getElementById('itemDescription').value.trim();
+        const tag=document.getElementById('itemTag').value.trim();
+        if(!name){ alert('Enter item name'); return }
+        let color=selectedColor||firstAvailableColor()||COLORS[0];
+        if(usedColors.has(color) && !allowRepeats()) color=firstAvailableColor()||color;
+        const s={id:Date.now(), name, description, tag, color};
+        subjects.push(s); recomputeUsedColors(); renderSubjects();
+        const next=firstAvailableColor(); if(next) selectedColor=next;
+        f.reset(); refreshPaletteUI();
+      });
+    }
+    function renderSubjects(){
+      const box=document.getElementById('subjectsList');
+      if(subjects.length===0){
+        box.innerHTML=`<p style="color:#64748b;font-style:italic;text-align:center;padding:14px;">No items yet. Create your first schedule item above!</p>`;
+        return;
+      }
+      box.innerHTML=subjects.map(s=>`
+        <div class="subject-item" draggable="true" data-subject-id="${s.id}" style="background:${s.color}">
+          <button class="delete-btn" onclick="deleteSubject(${s.id})" title="Delete">×</button>
+          <div class="subject-content">
+            <div class="color-indicator"></div>
+            <div class="subject-info">
+              <div class="subject-name">${esc(s.name)}</div>
+              ${s.description?`<div class="subject-description">${esc(s.description)}</div>`:''}
+              ${s.tag?`<div class="subject-tag">- ${esc(s.tag)}</div>`:''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+      box.querySelectorAll('.subject-item').forEach(el=>{
+        el.addEventListener('dragstart',e=>{
+          el.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', el.dataset.subjectId);
+          e.dataTransfer.effectAllowed='copy';
+        });
+        el.addEventListener('dragend',()=>el.classList.remove('dragging'));
+        el.addEventListener('click',(e)=>{
+          const s=subjects.find(x=>x.id===parseInt(el.dataset.subjectId));
+          if(s) setBrushFromSubject(s);
+          e.stopPropagation();
+        });
+      });
+    }
+    function deleteSubject(id){
+      subjects=subjects.filter(s=>s.id!==id);
+      renderSubjects();
+      document.querySelectorAll(`.schedule-item[data-subject-id="${id}"]`).forEach(node=>{
+        const slot=node.parentElement; clearSlot(slot);
+      });
+      recomputeUsedColors(); updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
+    }
+
+    /* ========= DROPPING + PAINTING ========= */
+    function setupDropZone(slot){
+      slot.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy' });
+      slot.addEventListener('dragenter',()=>{ if(slot.classList.contains('empty-slot')) slot.classList.add('drag-over') });
+      slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+      slot.addEventListener('drop',e=>{
+        e.preventDefault();
+        if(!slot.classList.contains('empty-slot')){ slot.classList.remove('drag-over'); return; }
+        const sid=parseInt(e.dataTransfer.getData('text/plain'));
+        const s=subjects.find(x=>x.id===sid);
+        slot.classList.remove('drag-over'); if(!s) return;
+        placeItem(slot, {id:s.id,name:s.name,description:s.description||'',tag:s.tag||'',color:s.color,bg:mixWithWhite(s.color,.78)});
+        setBrushFromSubject(s);
+        updateMergesForDayInGrid(document.getElementById('scheduleGrid'), parseInt(slot.dataset.day));
+      });
+
+      slot.addEventListener('click',e=>{
+        if(isPainting) return;
+        if(e.altKey){
+          if(slot.classList.contains('schedule-slot')){
+            const d=parseInt(slot.dataset.day); clearSlot(slot); updateMergesForDayInGrid(document.getElementById('scheduleGrid'), d);
+          }
+          return;
+        }
+        if(slot.classList.contains('empty-slot') && currentBrush){
+          placeItem(slot,currentBrush);
+          updateMergesForDayInGrid(document.getElementById('scheduleGrid'), parseInt(slot.dataset.day));
+        }else if(slot.classList.contains('schedule-slot')){
+          const it=slot.querySelector('.schedule-item'); if(it) setBrushFromItem(it);
+        }
+      });
+
+      slot.addEventListener('mousedown',e=>{
+        if(e.button!==0) return;
+        paintMode = e.altKey ? 'erase' : 'fill';
+        const existing=slot.querySelector('.schedule-item');
+        if(existing && paintMode==='fill') setBrushFromItem(existing);
+        if(paintMode==='fill' && !currentBrush) return;
+        isPainting=true; paintDay=parseInt(slot.dataset.day);
+        if(paintMode==='fill'){
+          if(slot.classList.contains('empty-slot')) placeItem(slot,currentBrush);
+        }else{
+          if(slot.classList.contains('schedule-slot')) clearSlot(slot);
+        }
+        e.preventDefault();
+      });
+      slot.addEventListener('mouseenter',()=>{
+        if(!isPainting) return;
+        if(parseInt(slot.dataset.day)!==paintDay) return;
+        if(paintMode==='fill'){
+          if(slot.classList.contains('empty-slot') && currentBrush) placeItem(slot,currentBrush);
+        }else{
+          if(slot.classList.contains('schedule-slot')) clearSlot(slot);
+        }
+      });
+    }
+    function endPaint(){
+      if(!isPainting) return;
+      const d=paintDay; isPainting=false; paintDay=null;
+      updateMergesForDayInGrid(document.getElementById('scheduleGrid'), d);
+    }
+
+    /* ========= BRUSH ========= */
+    function setBrushFromSubject(s){
+      currentBrush={id:s.id,name:s.name,description:s.description||'',tag:s.tag||'',color:s.color,bg:mixWithWhite(s.color,.78)};
+      updateBrushUI();
+      document.querySelectorAll('.schedule-item.is-brush').forEach(el=>el.classList.remove('is-brush'));
+    }
+    function setBrushFromItem(item){
+      currentBrush={
+        id:parseInt(item.dataset.subjectId)||Date.now(),
+        name:item.dataset.name, description:item.dataset.desc||'', tag:item.dataset.tag||'',
+        color:item.dataset.color,
+        bg:getComputedStyle(item).getPropertyValue('--card-bg').trim()
+      };
+      updateBrushUI();
+      document.querySelectorAll('.schedule-item.is-brush').forEach(el=>el.classList.remove('is-brush'));
+      item.classList.add('is-brush');
+    }
+    function clearBrush(){
+      currentBrush=null; updateBrushUI();
+      document.querySelectorAll('.schedule-item.is-brush').forEach(el=>el.classList.remove('is-brush'));
+    }
+    function updateBrushUI(){
+      const chip=document.getElementById('brushChip');
+      const sw=document.getElementById('brushSwatch');
+      const lbl=document.getElementById('brushLabel');
+      const ghost=document.getElementById('cursorBrush');
+      const ctxt=document.getElementById('cursorTxt');
+      const grid=document.getElementById('scheduleGrid');
+      if(currentBrush){
+        chip.style.display='flex';
+        sw.style.background=currentBrush.color;
+        lbl.textContent=currentBrush.name;
+        if(!IS_TOUCH){
+          ghost.style.display='block';
+          ghost.querySelector('.sw').style.background=currentBrush.color;
+          ctxt.textContent=currentBrush.name;
+          grid.style.cursor='crosshair';
+        }
+      }else{
+        chip.style.display='none';
+        if(!IS_TOUCH){ ghost.style.display='none'; grid.style.cursor='default'; }
+      }
+    }
+    function moveCursorGhost(e){
+      const g=document.getElementById('cursorBrush');
+      if(g.style.display==='block'){ g.style.left=e.clientX+'px'; g.style.top=e.clientY+'px'; }
+    }
+
+    /* ========= ITEM NODE ========= */
+    function placeItem(slot, brush){
+      if(!slot.classList.contains('empty-slot')) return;
+      const node=document.createElement('div');
+      node.className='schedule-item';
+      node.dataset.subjectId=brush.id;
+      node.dataset.name=brush.name;
+      node.dataset.color=brush.color;
+      node.dataset.desc=brush.description||'';
+      node.dataset.tag=brush.tag||'';
+      node.style.setProperty('--accent', brush.color);
+      node.style.setProperty('--card-bg', brush.bg);
+      node.innerHTML=`
+        <div class="item-name">${esc(brush.name)}</div>
+        ${brush.description?`<div class="item-description">${esc(brush.description)}</div>`:''}
+        ${brush.tag?`<div class="item-tag">- ${esc(brush.tag)}</div>`:''}
+        <button class="remove-btn" title="Remove">×</button>`;
+      node.querySelector('.remove-btn').addEventListener('click',()=>{ const d=parseInt(slot.dataset.day); clearSlot(slot); updateMergesForDayInGrid(document.getElementById('scheduleGrid'), d) });
+      node.addEventListener('click',(ev)=>{ setBrushFromItem(node); ev.stopPropagation(); });
+      slot.innerHTML=''; slot.appendChild(node); slot.className='schedule-slot';
+      slot.style.setProperty('--item-bg', brush.bg);
+      
+      // Apply dynamic sizing after a brief delay to ensure layout is complete
+      setTimeout(() => applyDynamicSizing(node), 50);
+    }
+    function clearSlot(slot){
+      slot.innerHTML=''; slot.className='empty-slot';
+      slot.style.removeProperty('--item-bg');
+      setupDropZone(slot);
+    }
+
+    /* ========= UTIL ========= */
+    function esc(s){ return String(s||'').replace(/[&<>\"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])) }
+    function hexToRgb(hex){ const n=parseInt(hex.slice(1),16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255} }
+    function rgbToHex(r,g,b){ const h=v=>v.toString(16).padStart(2,'0'); return `#${h(r)}${h(g)}${h(b)}` }
+    function mixWithWhite(hex,ratio){ const {r,g,b}=hexToRgb(hex); const R=Math.round(r+(255-r)*ratio),G=Math.round(g+(255-g)*ratio),B=Math.round(b+(255-b)*ratio); return rgbToHex(R,G,B) }
+    /* add ↓ under UTIL helpers */
+    function addMinutes(t, mins){
+    const [h,m] = t.split(':').map(Number);
+    const total = h*60 + m + mins;
+    const nh = ((total % 1440) + 1440) % 1440;  // stay in 0..1439
+    const H = Math.floor(nh/60), M = nh % 60;
+    return `${String(H).padStart(2,'0')}:${String(M).padStart(2,'0')}`;
+}
+function fmtNoMeridiem(t){
+  // "07:00" -> "7:00"
+  const [h,m] = t.split(':');
+  return `${String(parseInt(h,10))}:${m}`;
+}
+// ==== TIME FORMAT STATE & HELPERS (add below your UTIL helpers) ====
+let USE_12H = true;   // default: show 12-hour (no AM/PM)
+
+function to12hNoMeridiem(t) {
+  // "13:05" -> "1:05", "00:00" -> "12:00", keep minutes as-is
+  const [hh, mm] = t.split(':').map(Number);
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  return `${h12}:${String(mm).padStart(2,'0')}`;
+}
+
+function to24hNoMeridiem(t) {
+  // "07:05" -> "7:05", "13:05" -> "13:05"
+  const [hh, mm] = t.split(':').map(Number);
+  return `${hh}:${String(mm).padStart(2,'0')}`;
+}
+
+function formatRange(start24) {
+  const end24 = addMinutes(start24, 15);
+  const fmt = USE_12H ? to12hNoMeridiem : to24hNoMeridiem;
+  return `${fmt(start24)}–${fmt(end24)}`;
+}
+
+// Helper function to get time range from slot indices for merged blocks
+function getTimeRangeFromSlots(startIndex, span) {
+  const startTime = TIMES[startIndex].time24;
+  const endTime = addMinutes(startTime, span * 15);
+  
+  if (USE_12H) {
+    // 12-hour mode: include AM/PM
+    const start12h = to12hWithMeridiem(startTime);
+    const end12h = to12hWithMeridiem(endTime);
+    return `${start12h} - ${end12h}`;
+  } else {
+    // 24-hour mode: no AM/PM
+    const fmt = to24hNoMeridiem;
+    return `${fmt(startTime)} - ${fmt(endTime)}`;
+  }
+}
+
+// Helper function to convert 24h time to 12h with AM/PM
+function to12hWithMeridiem(t) {
+  const [hh, mm] = t.split(':').map(Number);
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  const meridiem = hh < 12 ? 'AM' : 'PM';
+  return `${h12}:${String(mm).padStart(2,'0')} ${meridiem}`;
+}
+
+
+function initRowHover(){
+  const grid = document.getElementById('scheduleGrid');
+  const hl = document.createElement('div');
+  hl.className = 'row-highlight';
+  hl.style.display = 'none';
+  grid.appendChild(hl);
+
+  const showFor = (start) => {
+    const timeCell = grid.querySelector(`.time-slot[data-time24="${start}"]`);
+    if(!timeCell){ hl.style.display='none'; return; }
+    hl.style.top = timeCell.offsetTop + 'px';
+    hl.style.height = timeCell.offsetHeight + 'px';
+    hl.style.display = 'block';
+  };
+
+  grid.addEventListener('mousemove', (e)=>{
+    const cell = e.target.closest('[data-time], .time-slot');
+    const start = cell?.dataset.time || cell?.dataset.time24;
+    if(!start){ hl.style.display='none'; return; }
+    showFor(start);
+  });
+
+  grid.addEventListener('mouseleave', ()=>{ hl.style.display='none'; });
+}
+
+
+
+    /* ========= MERGES ========= */
+    function updateMergesAllDaysInGrid(grid){ 
+      const dayCount = showWeekends ? 7 : 5;
+      for(let d=0; d<dayCount; d++) updateMergesForDayInGrid(grid,d);
+    }
+    function updateMergesForDayInGrid(grid, day){
+      grid.querySelectorAll(`.run-block[data-day="${day}"]`).forEach(n=>n.remove());
+      const slots=[...grid.querySelectorAll(`[data-day="${day}"]`)];
+      slots.forEach(s=>{ const it=s.querySelector('.schedule-item'); if(it){ it.classList.remove('ghost','compact','is-brush'); }});
+      let i=0;
+      while(i<slots.length){
+        const it=slots[i].querySelector('.schedule-item');
+        if(!it){ i++; continue; }
+        const key=`${it.dataset.subjectId}__${it.dataset.color}__${it.dataset.tag}`;
+        const start=i; let j=i+1;
+        while(j<slots.length){
+          const it2=slots[j].querySelector('.schedule-item');
+          if(!it2) break;
+          const k2=`${it2.dataset.subjectId}__${it2.dataset.color}__${it2.dataset.tag}`;
+          if(k2!==key) break;
+          j++;
+        }
+        const span=j-start;
+        if(span>1){
+          for(let k=start;k<j;k++){ const mb=slots[k].querySelector('.schedule-item'); if(mb) mb.classList.add('ghost'); }
+          const first=slots[start], last=slots[j-1];
+          const run=document.createElement('div');
+          run.className='run-block';
+          run.dataset.day=day; run.dataset.start=start; run.dataset.span=span;
+          run.style.setProperty('--accent', it.dataset.color);
+          const bg=getComputedStyle(it).getPropertyValue('--card-bg').trim() || mixWithWhite(it.dataset.color,.78);
+          run.style.setProperty('--card-bg', bg);
+          run.style.left = first.offsetLeft + 'px';
+          run.style.top  = first.offsetTop  + 'px';
+          run.style.width  = first.offsetWidth + 'px';
+          run.style.height = (last.offsetTop + last.offsetHeight - first.offsetTop) + 'px';
+          const closeBtnHTML = grid.id==='scheduleGrid' ? `<button class="run-close" title="Delete">×</button>` : ``;
+          const timeRange = getTimeRangeFromSlots(start, span);
+          run.innerHTML = `
+            ${closeBtnHTML}
+            <div class="t">${esc(it.dataset.name)}</div>
+            ${it.dataset.desc?`<div class="d">${esc(it.dataset.desc)}</div>`:''}
+            ${it.dataset.tag?`<div class="g">- ${esc(it.dataset.tag)}</div>`:''}
+            <div class="time-range">${timeRange}</div>`;
+          if (grid.id==='scheduleGrid') {
+            run.querySelector('.run-close').addEventListener('click', (ev)=>{
+              ev.stopPropagation();
+              removeRunFromGrid(grid, day, start, span);
+            });
+          }
+          grid.appendChild(run);
+          
+          // Apply dynamic sizing after a brief delay to ensure layout is complete
+          setTimeout(() => applyDynamicSizing(run), 50);
+        }else{
+          compactIfSingle(it);
+        }
+        i=j;
+      }
+    }
+    function removeRunFromGrid(grid, day,start,span){
+      const slots=[...grid.querySelectorAll(`[data-day="${day}"]`)];
+      for(let k=start; k<start+span; k++){
+        const slot=slots[k];
+        if(slot && slot.classList.contains('schedule-slot')) clearSlot(slot);
+      }
+      updateMergesForDayInGrid(grid, day);
+    }
+    function compactIfSingle(item){
+      const rowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'))||12;
+      const isOneRow = item.parentElement.getBoundingClientRect().height <= rowH + 1;
+      item.classList.toggle('compact', isOneRow);
+      const parts=[item.querySelector('.item-name')?.textContent.trim()];
+      const d=item.dataset.desc?.trim(); if(d) parts.push(d);
+      const t=item.dataset.tag?.trim(); if(t) parts.push(`- ${t}`);
+      item.dataset.title=parts.filter(Boolean).join(' • ');
+    }
+
+    function refreshTimeColumn(){
+  document.querySelectorAll('#scheduleGrid .time-slot').forEach(cell=>{
+    const start = cell.dataset.time24;
+    if(start){
+      cell.textContent = formatRange(start);
+    }
+  });
+}
+
+function refreshTimeRangesInMergedBlocks(){
+  document.querySelectorAll('.run-block').forEach(block=>{
+    const start = parseInt(block.dataset.start);
+    const span = parseInt(block.dataset.span);
+    const timeRange = getTimeRangeFromSlots(start, span);
+    const timeRangeEl = block.querySelector('.time-range');
+    if(timeRangeEl){
+      timeRangeEl.textContent = timeRange;
+    }
+  });
+}
+
+// MATHEMATICAL DYNAMIC SIZING SYSTEM - NO MORE CLASSES!
+function applyDynamicSizing(element) {
+  if (!element) return;
+  
+  const height = element.getBoundingClientRect().height;
+  const rowHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h')) || 12;
+  const exactRows = height / rowHeight;
+  
+  console.log(`Mathematical sizing: height=${height}px, exactRows=${exactRows.toFixed(2)}`, element);
+  
+  // Remove all old sizing classes
+  element.classList.remove('tiny', 'small', 'medium', 'large');
+  
+  if (element.classList.contains('schedule-item')) {
+    applyMathematicalItemSizing(element, exactRows);
+  } else if (element.classList.contains('run-block')) {
+    applyMathematicalBlockSizing(element, exactRows);
+  }
+}
+
+function applyMathematicalItemSizing(element, exactRows) {
+  const nameEl = element.querySelector('.item-name');
+  const descEl = element.querySelector('.item-description');  
+  const tagEl = element.querySelector('.item-tag');
+  
+  // FIXED MATHEMATICAL SCALING: Conservative scaling for middle sizes
+  // Use square root to prevent oversizing middle ranges
+  const scaleFactor = Math.max(0.35, Math.min(0.85, Math.sqrt(exactRows / 6))); // Much more conservative scaling
+  
+  // Calculate font sizes mathematically - OPTIMIZED FOR PERFECT READABILITY
+  const baseName = 0.984;  // 0.82 * 1.2 = 20% bigger for perfect readability
+  const baseDesc = 0.816;  // 0.68 * 1.2 = 20% bigger for perfect readability
+  const baseTag = 0.768;   // 0.64 * 1.2 = 20% bigger for perfect readability
+  
+  const nameSize = baseName * scaleFactor;
+  const descSize = baseDesc * scaleFactor;
+  const tagSize = baseTag * scaleFactor;
+  
+  // Calculate line heights and margins mathematically - READABLE
+  const lineHeight = Math.max(1.0, 1.25 - (exactRows * 0.07)); // Slightly more comfortable line height
+  const margin = Math.max(0, exactRows * 0.2); // Less margin
+  
+  // Apply calculated styles
+  if (nameEl) {
+    nameEl.style.fontSize = `${nameSize}rem`;
+    nameEl.style.lineHeight = lineHeight;
+    nameEl.style.marginBottom = `${margin}px`;
+    
+    // Line clamp based on available rows - MORE CONSERVATIVE
+    const maxLines = Math.max(1, Math.floor(exactRows * 0.4)); // Reduced from 0.6 to 0.4
+    nameEl.style.webkitLineClamp = maxLines;
+  }
+  
+  // Show/hide and size description based on space
+  if (descEl) {
+    if (exactRows > 1.5) {
+      descEl.style.display = 'block';
+      descEl.style.fontSize = `${descSize}rem`;
+      descEl.style.lineHeight = lineHeight * 0.9;
+      descEl.style.opacity = Math.max(0.6, scaleFactor);
+      descEl.style.margin = '0';
+    } else {
+      descEl.style.display = 'none';
+    }
+  }
+  
+  // Show/hide and size tag based on space
+  if (tagEl) {
+    if (exactRows > 2.5) {
+      tagEl.style.display = 'block';
+      tagEl.style.fontSize = `${tagSize}rem`;
+      tagEl.style.lineHeight = lineHeight * 0.85;
+      tagEl.style.opacity = Math.max(0.5, scaleFactor * 0.8);
+      tagEl.style.margin = '0';
+    } else {
+      tagEl.style.display = 'none';
+    }
+  }
+  
+  console.log(`Item sizing: scale=${scaleFactor.toFixed(2)}, nameSize=${nameSize.toFixed(2)}rem, exactRows=${exactRows.toFixed(2)}`);
+}
+
+function applyMathematicalBlockSizing(element, exactRows) {
+  const titleEl = element.querySelector('.t');
+  const descEl = element.querySelector('.d');
+  const tagEl = element.querySelector('.g');
+  const timeRangeEl = element.querySelector('.time-range');
+  
+  // FIXED MATHEMATICAL SCALING for merged blocks - MUCH MORE CONSERVATIVE
+  const scaleFactor = Math.max(0.35, Math.min(0.8, Math.sqrt(exactRows / 8))); // Much more conservative
+  
+  const baseTitle = 0.936;  // 0.78 * 1.2 = 20% bigger for perfect readability
+  const baseDesc = 0.768;   // 0.64 * 1.2 = 20% bigger for perfect readability
+  const baseTag = 0.72;     // 0.60 * 1.2 = 20% bigger for perfect readability
+  const baseTime = 0.696;   // 0.58 * 1.2 = 20% bigger for perfect readability
+  
+  const titleSize = baseTitle * scaleFactor;
+  const descSize = baseDesc * scaleFactor;
+  const tagSize = baseTag * scaleFactor;
+  const timeSize = baseTime * scaleFactor;
+  
+  const lineHeight = Math.max(0.95, 1.2 - (exactRows * 0.05)); // More comfortable for readability
+  
+  // Apply calculated styles
+  if (titleEl) {
+    titleEl.style.fontSize = `${titleSize}rem`;
+    titleEl.style.lineHeight = lineHeight;
+  }
+  
+  if (descEl) {
+    if (exactRows > 1.8) {
+      descEl.style.display = 'block';
+      descEl.style.fontSize = `${descSize}rem`;
+      descEl.style.lineHeight = lineHeight * 0.9;
+      descEl.style.opacity = Math.max(0.7, scaleFactor);
+      descEl.style.margin = '0';
+    } else {
+      descEl.style.display = 'none';
+    }
+  }
+  
+  if (tagEl) {
+    if (exactRows > 2.8) {
+      tagEl.style.display = 'block';
+      tagEl.style.fontSize = `${tagSize}rem`;
+      tagEl.style.lineHeight = lineHeight * 0.85;
+      tagEl.style.opacity = Math.max(0.6, scaleFactor * 0.8);
+      tagEl.style.margin = '0';
+    } else {
+      tagEl.style.display = 'none';
+    }
+  }
+  
+  // TIME RANGE ALSO SCALES MATHEMATICALLY!
+  if (timeRangeEl) {
+    if (exactRows > 3.2) {
+      timeRangeEl.style.display = 'block';
+      timeRangeEl.style.fontSize = `${timeSize}rem`;
+      timeRangeEl.style.lineHeight = lineHeight * 0.8;
+      timeRangeEl.style.opacity = Math.max(0.6, scaleFactor * 0.9);
+      timeRangeEl.style.marginTop = `${Math.max(1, exactRows * 0.4)}px`;
+    } else {
+      timeRangeEl.style.display = 'none';
+    }
+  }
+  
+  console.log(`Block sizing: scale=${scaleFactor.toFixed(2)}, titleSize=${titleSize.toFixed(2)}rem, timeSize=${timeSize.toFixed(2)}rem`);
+}
+
+function updateAllDynamicSizing() {
+  console.log('Updating all dynamic sizing...');
+  
+  // Update individual schedule items
+  document.querySelectorAll('.schedule-item').forEach(applyDynamicSizing);
+  
+  // Update merged blocks
+  document.querySelectorAll('.run-block').forEach(applyDynamicSizing);
+  
+  // Apply sizing again after a brief delay to catch any layout changes
+  setTimeout(() => {
+    console.log('Second pass dynamic sizing...');
+    document.querySelectorAll('.schedule-item').forEach(applyDynamicSizing);
+    document.querySelectorAll('.run-block').forEach(applyDynamicSizing);
+  }, 100);
+}
+
+    /* ========= TOOLBAR ========= */
+    function setupToolbar(){
+      const range=document.getElementById('densityRange');
+      const val=document.getElementById('densityVal');
+
+      document.getElementById('btnToggleItems').addEventListener('click', ()=>{
+        ignoreNextClear = true;
+        const app=document.getElementById('appShell');
+        const panel=document.getElementById('sidePanel');
+        const hidden=panel.classList.toggle('hidden');
+        app.classList.toggle('items-hidden', hidden);
+        updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
+      });
+
+      range.addEventListener('input',()=>{
+        document.documentElement.style.setProperty('--row-h', range.value+'px');
+        val.textContent=range.value+'px';
+        updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
+        // Update dynamic sizing after merge updates complete
+        setTimeout(() => updateAllDynamicSizing(), 50);
+      });
+
+      document.getElementById('btnResetFit').addEventListener('click',()=>{
+        document.documentElement.style.setProperty('--row-h','12px');
+        range.value=12; val.textContent='12px';
+        updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
+        // Update dynamic sizing after merge updates complete
+        setTimeout(() => updateAllDynamicSizing(), 50);
+      });
+      // Time format toggle
+const fmtBtn = document.getElementById('btnTimeFmt');
+fmtBtn.addEventListener('click', ()=>{
+  USE_12H = !USE_12H;
+  fmtBtn.textContent = 'Time: ' + (USE_12H ? '12-hour' : '24-hour');
+  refreshTimeColumn();
+  refreshTimeRangesInMergedBlocks();
+});
+
+// Weekend toggle
+const weekendBtn = document.getElementById('btnWeekendToggle');
+weekendBtn.addEventListener('click', ()=>{
+  showWeekends = !showWeekends;
+  weekendBtn.textContent = showWeekends ? '- Weekend' : '+ Weekend';
+  
+  console.log(`Toggling weekend mode: ${showWeekends}`);
+  
+  // Rebuild the entire grid
+  buildGrid();
+  
+  // Update merges after grid rebuild
+  setTimeout(() => {
+    updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
+    updateAllDynamicSizing();
+  }, 50);
+});
+
+
+      document.getElementById('btnFullscreen').addEventListener('click', async ()=>{
+        const el=document.getElementById('scheduleContainer');
+        if(!document.fullscreenElement){ await el.requestFullscreen?.(); } else { await document.exitFullscreen?.(); }
+      });
+
+      document.getElementById('btnFinalize').addEventListener('click', openFinalizeClean);
+      document.getElementById('brushClear').addEventListener('click', (e)=>{ e.stopPropagation(); clearBrush(); });
+      document.addEventListener('keydown',e=>{ if(e.key==='Escape') clearBrush() });
+    }
+
+    /* ========= FINALIZE CLEAN ========= */
+    function openFinalizeClean(){
+      const overlay=document.getElementById('finalizeOverlay');
+      const holder=document.getElementById('finalizeGridHolder');
+      holder.innerHTML='';
+      const src=document.getElementById('scheduleGrid');
+      const clone=src.cloneNode(true);
+      clone.querySelectorAll('.run-block').forEach(n=>n.remove());
+      clone.querySelectorAll('.remove-btn').forEach(n=>n.remove());
+      holder.appendChild(clone);
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden','false');
+      updateMergesAllDaysInGrid(clone);
+
+      const close = ()=>{ overlay.classList.remove('active'); overlay.setAttribute('aria-hidden','true'); document.onkeydown=null; overlay.onclick=null; };
+      overlay.onclick = ()=> close();
+      document.onkeydown = (e)=>{
+        if(e.key==='Escape'){ close(); }
+        if(e.key.toLowerCase()==='p' || e.key.toLowerCase()==='d'){ exportFinalCloneAsPDF(clone); }
+      };
+    }
+
+    async function exportFinalCloneAsPDF(gridEl){
+      const canvas=await html2canvas(gridEl,{backgroundColor:'#fff',scale:2,useCORS:true});
+      const img=canvas.toDataURL('image/png');
+      const { jsPDF } = window.jspdf;
+      const isLandscape = canvas.width >= canvas.height;
+      const pdf=new jsPDF({unit:'pt',format:'a4',orientation:isLandscape?'landscape':'portrait'});
+      const W=pdf.internal.pageSize.getWidth(), H=pdf.internal.pageSize.getHeight();
+      const margin=28;
+      const maxW=W-2*margin, maxH=H-2*margin;
+      const ratio=Math.min(maxW/canvas.width, maxH/canvas.height);
+      const drawW=canvas.width*ratio, drawH=canvas.height*ratio;
+      const x=(W-drawW)/2, y=(H-drawH)/2;
+      pdf.addImage(img,'PNG',x,y,drawW,drawH,'','FAST');
+      pdf.save('Schedule.pdf');
+    }
+  </script>
+
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</body>
+</html>
