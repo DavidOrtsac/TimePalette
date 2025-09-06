@@ -67,4 +67,4 @@ TimePalette combines the power of professional scheduling tools with the simplic
 
 ---
 
-**Made with ❤️ for better time management**
+**Made by David Castro for better time management**
