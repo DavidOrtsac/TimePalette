@@ -101,7 +101,7 @@
       padding:12px 8px;font-size:.84rem;font-weight:500;text-transform:capitalize;letter-spacing:.3px;
       background:#f8f9fa;color:#495057;display:flex;align-items:center;justify-content:center;position:sticky;top:0;z-index:6;margin-bottom:6px;border-bottom:1px solid #dee2e6
     }
-    .header-spacer{grid-column:1 / -1; height:6px; background:transparent;}
+    .header-spacer{grid-column:1 / -1; height:0px; background:transparent;}
 
     .time-slot{
   background:#f1f5f9;
@@ -158,7 +158,7 @@
     .run-block .t{font-weight:700;transition:font-size 0.2s ease}
     .run-block .d{font-size:.72rem;opacity:.9;transition:font-size 0.2s ease, opacity 0.2s ease}
     .run-block .g{font-size:.68rem;opacity:.85;transition:font-size 0.2s ease, opacity 0.2s ease}
-    .run-block .time-range{font-size:.65rem;opacity:.8;font-weight:600;margin-top:2px;color:var(--accent);text-align:center;transition:font-size 0.2s ease, opacity 0.2s ease}
+    .run-block .time-range{font-size:.65rem;opacity:.8;font-weight:600;margin-top:2px;text-align:center;color:#000000!important;transition:font-size 0.2s ease, opacity 0.2s ease}
     
     /* MATHEMATICAL DYNAMIC SIZING FOR MERGED BLOCKS - NO MORE CLASSES! */
     .run-close{pointer-events:auto;position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:6px;background:rgba(0,0,0,.40);color:#fff;border:none;cursor:pointer;font-weight:800;line-height:18px;font-size:.8rem;}
@@ -313,6 +313,9 @@
   <!-- NEW: weekend toggle -->
   <button class="btn" id="btnWeekendToggle">+ Weekend</button>
 
+  <!-- NEW: granularity toggle -->
+  <button class="btn" id="btnGranularityToggle">Granularity: 15min</button>
+
   <button class="btn finalize" id="btnFinalize">Export Schedule</button>
   <button class="btn" id="btnFullscreen">Fullscreen</button>
 
@@ -331,7 +334,6 @@
         <div class="day-header">Wednesday</div>
         <div class="day-header">Thursday</div>
         <div class="day-header">Friday</div>
-        <div class="header-spacer"></div>
         <!-- rows inserted by JS -->
       </div>
     </div>
@@ -364,6 +366,7 @@
     let subjects=[], usedColors=new Set(), selectedColor=null, TIMES=[];
     let currentBrush=null, isPainting=false, paintDay=null, paintMode='fill';
     let showWeekends=false; // Weekend toggle state
+    let timeGranularity=15; // Time granularity in minutes (15 or 30)
     
 
     // Device detection
@@ -462,6 +465,9 @@
 function buildGrid(){
   const grid=document.getElementById('scheduleGrid'); 
   
+  // BACKUP: Save existing schedule data before clearing
+  const existingScheduleData = backupScheduleData();
+  
   // Clear existing grid content
   grid.innerHTML = '';
   
@@ -477,15 +483,12 @@ function buildGrid(){
   grid.appendChild(createHeader('TIME', 'time-header'));
   dayNames.forEach(day => grid.appendChild(createHeader(day, 'day-header')));
   
-  // Add header spacer
-  const spacer = document.createElement('div');
-  spacer.className = 'header-spacer';
-  grid.appendChild(spacer);
+  // Header spacer removed - no longer needed
   
   // Build time slots
   TIMES = [];
   for(let hour=7; hour<=19; hour++){
-    for(let minute=0; minute<60; minute+=15){
+    for(let minute=0; minute<60; minute+=timeGranularity){
       if(hour===19 && minute>0) break;
 
       const hh=String(hour).padStart(2,'0'), mm=String(minute).padStart(2,'0');
@@ -515,6 +518,173 @@ function buildGrid(){
       grid.appendChild(slot);
     }
   });
+  
+  // RESTORE: Restore existing schedule data after grid rebuild
+  restoreScheduleData(existingScheduleData);
+}
+
+// Backup function to save existing schedule data
+function backupScheduleData() {
+  const scheduleData = [];
+  const grid = document.getElementById('scheduleGrid');
+  
+  // Find all schedule items and their slot information
+  grid.querySelectorAll('.schedule-item').forEach(item => {
+    const slot = item.parentElement;
+    if (slot && slot.dataset.day !== undefined && slot.dataset.time !== undefined) {
+      scheduleData.push({
+        subjectId: item.dataset.subjectId,
+        name: item.dataset.name,
+        color: item.dataset.color,
+        tag: item.dataset.tag,
+        day: parseInt(slot.dataset.day),
+        time: slot.dataset.time,
+        description: item.dataset.desc || ''
+      });
+    }
+  });
+  
+  console.log(`Backed up ${scheduleData.length} schedule items`);
+  return scheduleData;
+}
+
+// Smart rounding function to map time slots between different granularities
+function smartRoundTime(timeString) {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes;
+  
+  // Round to nearest available slot in current granularity
+  const roundedMinutes = Math.round(totalMinutes / timeGranularity) * timeGranularity;
+  
+  // Handle edge cases (rounding beyond 19:00)
+  if (roundedMinutes >= 19 * 60) {
+    return '19:00';
+  }
+  
+  // Convert back to time string
+  const roundedHours = Math.floor(roundedMinutes / 60);
+  const roundedMins = roundedMinutes % 60;
+  
+  return `${String(roundedHours).padStart(2, '0')}:${String(roundedMins).padStart(2, '0')}`;
+}
+
+// Find next available slot for conflict resolution
+function findNextAvailableSlot(day, startTime, occupiedSlots, grid) {
+  const [startHours, startMinutes] = startTime.split(':').map(Number);
+  const startTotalMinutes = startHours * 60 + startMinutes;
+  
+  // Try slots within 2 hours of the original time
+  for (let offset = 0; offset <= 120; offset += timeGranularity) {
+    const testTotalMinutes = startTotalMinutes + offset;
+    if (testTotalMinutes >= 19 * 60) break; // Don't go beyond 19:00
+    
+    const testHours = Math.floor(testTotalMinutes / 60);
+    const testMinutes = testTotalMinutes % 60;
+    const testTime = `${String(testHours).padStart(2, '0')}:${String(testMinutes).padStart(2, '0')}`;
+    const slotKey = `${day}-${testTime}`;
+    
+    if (!occupiedSlots.has(slotKey)) {
+      const slot = grid.querySelector(`[data-day="${day}"][data-time="${testTime}"]`);
+      if (slot && slot.classList.contains('empty-slot')) {
+        return { time: testTime, slot: slot };
+      }
+    }
+  }
+  
+  return null; // No available slot found
+}
+
+// Restore function to place schedule items back after grid rebuild
+function restoreScheduleData(scheduleData) {
+  if (!scheduleData || scheduleData.length === 0) return;
+  
+  const grid = document.getElementById('scheduleGrid');
+  const dayCount = showWeekends ? 7 : 5;
+  
+  // Track occupied slots to handle conflicts
+  const occupiedSlots = new Set();
+  
+  scheduleData.forEach(item => {
+    // Only restore items for days that are currently visible
+    if (item.day < dayCount) {
+      // Smart rounding: map old time to nearest available slot in new granularity
+      const roundedTime = smartRoundTime(item.time);
+      const slotKey = `${item.day}-${roundedTime}`;
+      
+      // Find the corresponding slot in the new grid
+      let slot = grid.querySelector(`[data-day="${item.day}"][data-time="${roundedTime}"]`);
+      let finalTime = roundedTime;
+      
+      // Handle conflicts by finding next available slot
+      if (occupiedSlots.has(slotKey)) {
+        const nextSlot = findNextAvailableSlot(item.day, roundedTime, occupiedSlots, grid);
+        if (nextSlot) {
+          slot = nextSlot.slot;
+          finalTime = nextSlot.time;
+          console.log(`Conflict resolved: ${item.name} moved from ${roundedTime} to ${finalTime}`);
+        } else {
+          console.log(`No available slot found for ${item.name} at ${roundedTime}`);
+          return; // Skip this item if no slot available
+        }
+      }
+      
+      if (slot && slot.classList.contains('empty-slot')) {
+        // Mark this slot as occupied
+        occupiedSlots.add(`${item.day}-${finalTime}`);
+        // Create the schedule item
+        const scheduleItem = document.createElement('div');
+        scheduleItem.className = 'schedule-item';
+        scheduleItem.dataset.subjectId = item.subjectId;
+        scheduleItem.dataset.name = item.name;
+        scheduleItem.dataset.color = item.color;
+        scheduleItem.dataset.desc = item.description || '';
+        scheduleItem.dataset.tag = item.tag || '';
+        
+        // Set the visual properties
+        scheduleItem.style.setProperty('--accent', item.color);
+        scheduleItem.style.setProperty('--card-bg', mixWithWhite(item.color, 0.78));
+        
+        // Add the item content
+        scheduleItem.innerHTML = `
+          <div class="item-name">${esc(item.name)}</div>
+          ${item.description ? `<div class="item-description">${esc(item.description)}</div>` : ''}
+          ${item.tag ? `<div class="item-tag">${esc(item.tag)}</div>` : ''}
+          <button class="remove-btn" onclick="removeItem(this)">×</button>
+        `;
+        
+        // Place the item in the slot
+        slot.classList.remove('empty-slot');
+        slot.classList.add('schedule-slot');
+        slot.appendChild(scheduleItem);
+      }
+    }
+  });
+  
+  console.log(`Restored ${scheduleData.length} schedule items`);
+}
+
+// Function to determine if a color is light or dark for contrast
+function isLightColor(color) {
+  // Convert hex to RGB
+  let r, g, b;
+  if (color.startsWith('#')) {
+    const hex = color.slice(1);
+    r = parseInt(hex.substr(0, 2), 16);
+    g = parseInt(hex.substr(2, 2), 16);
+    b = parseInt(hex.substr(4, 2), 16);
+  } else {
+    // Handle other color formats if needed
+    return false; // Default to dark text
+  }
+  
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5;
+}
+
+// Function to get appropriate text color for time ranges
+function getTimeRangeColor(backgroundColor) {
+  return isLightColor(backgroundColor) ? '#374151' : '#e5e7eb';
 }
 
 function createHeader(text, className) {
@@ -788,7 +958,7 @@ function to24hNoMeridiem(t) {
 }
 
 function formatRange(start24) {
-  const end24 = addMinutes(start24, 15);
+  const end24 = addMinutes(start24, timeGranularity);
   const fmt = USE_12H ? to12hNoMeridiem : to24hNoMeridiem;
   return `${fmt(start24)}–${fmt(end24)}`;
 }
@@ -796,7 +966,7 @@ function formatRange(start24) {
 // Helper function to get time range from slot indices for merged blocks
 function getTimeRangeFromSlots(startIndex, span) {
   const startTime = TIMES[startIndex].time24;
-  const endTime = addMinutes(startTime, span * 15);
+  const endTime = addMinutes(startTime, span * timeGranularity);
   
   if (USE_12H) {
     // 12-hour mode: include AM/PM
@@ -1134,8 +1304,12 @@ function updateAllDynamicSizing() {
       });
 
       document.getElementById('btnResetFit').addEventListener('click',()=>{
-        document.documentElement.style.setProperty('--row-h','12px');
-        range.value=12; val.textContent='12px';
+        // Use appropriate default based on current granularity
+        const defaultRowHeight = timeGranularity === 15 ? 12 : 22;
+        document.documentElement.style.setProperty('--row-h', defaultRowHeight + 'px');
+        range.value = defaultRowHeight; 
+        val.textContent = defaultRowHeight + 'px';
+        document.querySelector('.density-note').textContent = `recommended ${defaultRowHeight}px`;
         updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
         // Update dynamic sizing after merge updates complete
         setTimeout(() => updateAllDynamicSizing(), 50);
@@ -1158,6 +1332,37 @@ weekendBtn.addEventListener('click', ()=>{
   console.log(`Toggling weekend mode: ${showWeekends}`);
   
   // Rebuild the entire grid
+  buildGrid();
+  
+  // Update merges after grid rebuild
+  setTimeout(() => {
+    updateMergesAllDaysInGrid(document.getElementById('scheduleGrid'));
+    updateAllDynamicSizing();
+  }, 50);
+});
+
+// Granularity toggle
+const granularityBtn = document.getElementById('btnGranularityToggle');
+granularityBtn.addEventListener('click', ()=>{
+  timeGranularity = timeGranularity === 15 ? 30 : 15;
+  granularityBtn.textContent = `Granularity: ${timeGranularity}min`;
+  
+  // Set appropriate default row height based on granularity
+  const defaultRowHeight = timeGranularity === 15 ? 12 : 22;
+  document.documentElement.style.setProperty('--row-h', defaultRowHeight + 'px');
+  
+  // Update density slider to match new default
+  const range = document.getElementById('densityRange');
+  const val = document.getElementById('densityVal');
+  const densityNote = document.querySelector('.density-note');
+  
+  range.value = defaultRowHeight;
+  val.textContent = defaultRowHeight + 'px';
+  densityNote.textContent = `recommended ${defaultRowHeight}px`;
+  
+  console.log(`Toggling granularity: ${timeGranularity} minutes, row height: ${defaultRowHeight}px`);
+  
+  // Rebuild the entire grid with new granularity
   buildGrid();
   
   // Update merges after grid rebuild
